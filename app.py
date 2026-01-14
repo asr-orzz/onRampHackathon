@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
 import services.agent_service as agent_service
 from utils.helper_functions import register_merchant
@@ -6,14 +6,13 @@ from utils.schemas import (
     RegisterRequestSchema,
     RegisterResponseSchema,
     AgentChatRequestSchema,
-    AgentChatResponseSchema
+    AgentChatResponseSchema,
 )
 import time
 import uvicorn
 
 app = FastAPI()
 
-# Enable CORS for all origins (adjust as needed)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -31,19 +30,19 @@ COMMON_HEADERS = {
 def health_check(response: Response):
     response.headers.update(COMMON_HEADERS)
     response.headers["X-Timestamp"] = str(time.time())
-    return {
-        "status": "healthy",
-        "time": time.time()
-    }
+    return {"status": "healthy", "time": time.time()}
 
-@app.get("/ping")
+@app.api_route("/ping", methods=["GET", "HEAD"])
 def ping(response: Response):
-    """
-    Lightweight endpoint for UptimeRobot / load balancers
-    """
     response.headers.update(COMMON_HEADERS)
     response.headers["X-Timestamp"] = str(time.time())
-    return "pong"
+    # Use Response explicitly so HEAD returns headers correctly without body
+    return Response(content="pong", media_type="text/plain")
+
+# Optional: silence favicon noise
+@app.api_route("/favicon.ico", methods=["GET", "HEAD"])
+def favicon():
+    return Response(status_code=204)
 
 @app.post("/register")
 async def register(request: RegisterRequestSchema) -> RegisterResponseSchema:
@@ -51,27 +50,14 @@ async def register(request: RegisterRequestSchema) -> RegisterResponseSchema:
         request.wallet_address,
         request.username,
         request.business_type,
-        request.description
+        request.description,
     )
-    return RegisterResponseSchema(
-        status="success",
-        username=request.username
-    )
+    return RegisterResponseSchema(status="success", username=request.username)
 
 @app.post("/agent/chat")
-async def agent_chat(
-    request: AgentChatRequestSchema
-) -> AgentChatResponseSchema:
+async def agent_chat(request: AgentChatRequestSchema) -> AgentChatResponseSchema:
     response_data = agent_service.run_agent(request.message)
-    return AgentChatResponseSchema(
-        text=response_data["text"],
-        auto_fill=response_data["auto_fill"]
-    )
+    return AgentChatResponseSchema(text=response_data["text"], auto_fill=response_data["auto_fill"])
 
 if __name__ == "__main__":
-    uvicorn.run(
-        app,
-        host="0.0.0.0",
-        port=5001,
-        reload=True
-    )
+    uvicorn.run(app, host="0.0.0.0", port=5001, reload=True)
