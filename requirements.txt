@@ -1,0 +1,12 @@
+
+web3
+eth-account
+numpy
+langchain-google-genai
+langchain
+python-dotenv
+gunicorn
+fastapi
+uvicorn
+pydantic
+requests
