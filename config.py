@@ -10,4 +10,4 @@ with open(MERCHANTS_FILE, 'r') as f:
 SPENDING_LIMIT_ETH = float(os.getenv("SPENDING_LIMIT_ETH", "1.0"))
 
 # Hardcoded API endpoint for payments
-PAYMENT_API_ENDPOINT = os.getenv("PAYMENT_API_ENDPOINT", "http://localhost:5001/pay")
+PAYMENT_API_ENDPOINT = os.getenv("PAYMENT_API_ENDPOINT", "https://on-ramp-hackathon.vercel.app/pay")
