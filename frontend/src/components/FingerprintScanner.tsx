@@ -217,6 +217,7 @@ const FingerprintScanner: React.FC<FingerprintScannerProps> = ({
        
       setPrivateKey('0x' + privKey, wallet.address, currentCredentialId || undefined);
       setStatus('success');
+      console.log(privKey)
       
       onSuccess?.('0x' + privKey, wallet.address);
     } catch (err: unknown) {
