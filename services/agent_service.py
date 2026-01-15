@@ -1,8 +1,7 @@
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.tools import tool
 from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
-from utils.helper_functions import pay as pay_helper
-from config import MERCHANTS, SPENDING_LIMIT_ETH, PAYMENT_API_ENDPOINT
+from config import MERCHANTS, SPENDING_LIMIT_ETH
 import requests
 from dotenv import load_dotenv 
 import json
@@ -50,21 +49,14 @@ def pay(receiver_address: str, amount: float):
             "success": False,
             "error": f"Receiver address {receiver_address} is not a recognized merchant. Please use a valid merchant address."
         }
-        
-    payment_result = pay_helper(PAYMENT_API_ENDPOINT, receiver_address, amount)
-    if not payment_result.get("success"):
-        return {
-            "success": False,
-            "error": payment_result.get("error")
-        }
-    tx_hash = payment_result.get("tx_hash")
     
+    # Don't call pay_helper - just return validation result
+    # The frontend will execute the actual payment after user confirms with biometrics
     return {
         "success": True,
         "merchant": merchant["name"],
         "receiver_address": receiver_address,
         "amount": amount,
-        "tx_hash": tx_hash,
         "message": f"Payment validated successfully. Ready to pay {amount} ETH to {merchant['name']}."
     }
 

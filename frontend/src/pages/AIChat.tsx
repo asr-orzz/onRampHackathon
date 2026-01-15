@@ -1,27 +1,37 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Send, 
-  Bot, 
+import {
+  Send,
+  Bot,
   User,
   Sparkles,
   Plane,
   MapPin,
   Calendar,
-  Loader2
+  Loader2,
+  CreditCard
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useChatStore, ChatMessage } from '@/stores/chatStore';
 import { useFingerprintStore } from '@/stores/fingerprintStore';
 import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 
-const AI_WELCOME_MESSAGE = (name: string) => 
+interface AutoFillData {
+  receiver: string;
+  amount: string;
+}
+
+const AI_WELCOME_MESSAGE = (name: string) =>
   `Hello! I'm NexPay AI 🤖\n\nI'm here to help you with:\n\n✈️ **Travel Planning** - Find the best destinations\n🎫 **Flight Bookings** - Compare and book flights\n🏪 **Merchant Discovery** - Find businesses that accept NexPay\n💡 **Payment Tips** - Get the most out of international transfers\n\nWhat can I help you with today, ${name}?`;
 
 const AIChat: React.FC = () => {
   const [inputValue, setInputValue] = useState('');
+  const [pendingPayment, setPendingPayment] = useState<AutoFillData | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { messages, isLoading, addMessage, setLoading } = useChatStore();
   const { userName } = useFingerprintStore();
+  const navigate = useNavigate();
 
   // Add welcome message on mount if no messages
   useEffect(() => {
@@ -38,12 +48,26 @@ const AIChat: React.FC = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  const handlePaymentClick = () => {
+    if (pendingPayment) {
+      // Navigate to Pay page with pre-filled values
+      navigate('/pay', {
+        state: {
+          receiverAddress: pendingPayment.receiver,
+          amount: pendingPayment.amount
+        }
+      });
+      setPendingPayment(null);
+    }
+  };
+
   const handleSend = async () => {
     if (!inputValue.trim() || isLoading) return;
 
     const userMessage = inputValue.trim();
     setInputValue('');
-    
+    setPendingPayment(null); // Clear any pending payment
+
     // Add user message
     addMessage({
       role: 'user',
@@ -53,13 +77,9 @@ const AIChat: React.FC = () => {
     setLoading(true);
 
     try {
-      // Simulate AI API call
-      // In production, this would call your AI server
-      console.log('Sending to AI server:', { message: userMessage });
-      
-      
-      // INSERT_YOUR_CODE
       // Call backend /agent/chat API for AI response
+      console.log('Sending to AI server:', { message: userMessage });
+
       const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/agent/chat`, {
         method: 'POST',
         headers: {
@@ -75,6 +95,14 @@ const AIChat: React.FC = () => {
         role: 'assistant',
         content: data.text || 'Sorry, I could not generate a reply this time.',
       });
+
+      // Handle auto_fill for payment
+      if (data.auto_fill && data.auto_fill.receiver && data.auto_fill.amount) {
+        setPendingPayment({
+          receiver: data.auto_fill.receiver,
+          amount: data.auto_fill.amount,
+        });
+      }
     } catch (error) {
       console.error('AI chat error:', error);
       addMessage({
@@ -85,6 +113,7 @@ const AIChat: React.FC = () => {
       setLoading(false);
     }
   };
+
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -102,7 +131,7 @@ const AIChat: React.FC = () => {
   return (
     <div className="flex flex-col h-[calc(100vh-140px)]">
       {/* Header */}
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         className="px-4 py-4"
@@ -153,7 +182,7 @@ const AIChat: React.FC = () => {
 
       {/* Quick Actions */}
       {messages.length <= 1 && (
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="px-4 pb-4"
@@ -177,6 +206,49 @@ const AIChat: React.FC = () => {
           </div>
         </motion.div>
       )}
+
+      {/* Pending Payment Card */}
+      <AnimatePresence>
+        {pendingPayment && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            className="px-4 pb-4"
+          >
+            <div className="glass rounded-xl p-4 border border-primary/30">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="p-2 rounded-lg bg-primary/10">
+                  <CreditCard className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <p className="font-medium text-foreground">Payment Ready</p>
+                  <p className="text-xs text-muted-foreground">Tap to confirm and pay</p>
+                </div>
+              </div>
+              <div className="space-y-2 mb-3">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Amount</span>
+                  <span className="font-medium text-foreground">{pendingPayment.amount} ETH</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">To</span>
+                  <span className="font-mono text-xs text-foreground truncate max-w-[180px]">
+                    {pendingPayment.receiver}
+                  </span>
+                </div>
+              </div>
+              <Button
+                onClick={handlePaymentClick}
+                className="w-full bg-gradient-primary text-primary-foreground"
+              >
+                <CreditCard className="w-4 h-4 mr-2" />
+                Proceed to Payment
+              </Button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Input */}
       <div className="p-4 glass border-t border-border mb-20">
@@ -221,11 +293,10 @@ const MessageBubble: React.FC<{ message: ChatMessage }> = ({ message }) => {
         )}
       </div>
       <div
-        className={`max-w-[80%] px-4 py-3 rounded-2xl ${
-          isUser
-            ? 'bg-primary text-primary-foreground rounded-tr-none'
-            : 'glass rounded-tl-none'
-        }`}
+        className={`max-w-[80%] px-4 py-3 rounded-2xl ${isUser
+          ? 'bg-primary text-primary-foreground rounded-tr-none'
+          : 'glass rounded-tl-none'
+          }`}
       >
         <div className={`text-sm whitespace-pre-wrap ${isUser ? '' : 'text-foreground'}`}>
           {message.content.split('\n').map((line, i) => (
@@ -242,7 +313,7 @@ const MessageBubble: React.FC<{ message: ChatMessage }> = ({ message }) => {
           ))}
         </div>
       </div>
-  
+
     </motion.div>
 
 

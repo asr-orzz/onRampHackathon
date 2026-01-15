@@ -1,15 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  QrCode, 
-  Keyboard, 
-  ArrowRight, 
+import {
+  QrCode,
+  Keyboard,
+  ArrowRight,
   CheckCircle2,
   AlertCircle,
   Loader2,
   Fingerprint
 } from 'lucide-react';
 import { ethers } from 'ethers';
+import { useLocation } from 'react-router-dom';
 import QRScanner from '@/components/QRScanner';
 import FingerprintScanner from '@/components/FingerprintScanner';
 import { Input } from '@/components/ui/input';
@@ -18,9 +19,17 @@ import { toast } from 'sonner';
 
 type PaymentStep = 'input' | 'amount' | 'confirm' | 'processing' | 'success' | 'error';
 
-const SEPOLIA_RPC = import.meta.env.SEPOLIA_RPC_URL||'https://sepolia.infura.io/v3/a1cf6b93c95b4e079a21fa4fca874411';
+interface LocationState {
+  receiverAddress?: string;
+  amount?: string;
+}
+
+const SEPOLIA_RPC = import.meta.env.SEPOLIA_RPC_URL || 'https://sepolia.infura.io/v3/a1cf6b93c95b4e079a21fa4fca874411';
 
 const Pay: React.FC = () => {
+  const location = useLocation();
+  const state = location.state as LocationState | null;
+
   const [step, setStep] = useState<PaymentStep>('input');
   const [receiverAddress, setReceiverAddress] = useState('');
   const [amount, setAmount] = useState('');
@@ -31,6 +40,24 @@ const Pay: React.FC = () => {
   const [errorMessage, setErrorMessage] = useState('');
 
   const { privateKey, walletAddress, isRegistered } = useFingerprintStore();
+
+  // Handle pre-filled values from navigation state (from AI Chat)
+  useEffect(() => {
+    if (state?.receiverAddress && ethers.utils.isAddress(state.receiverAddress)) {
+      setReceiverAddress(state.receiverAddress);
+
+      if (state.amount && parseFloat(state.amount) > 0) {
+        setAmount(state.amount);
+        // Both address and amount provided, go directly to confirm
+        setStep('confirm');
+        toast.success('Payment details loaded from AI assistant');
+      } else {
+        // Only address provided, go to amount step
+        setStep('amount');
+      }
+    }
+  }, [state]);
+
 
   const handleScan = (data: string) => {
     console.log('Scanned QR:', data);
@@ -73,13 +100,13 @@ const Pay: React.FC = () => {
 
     try {
       const provider = new ethers.providers.JsonRpcProvider(SEPOLIA_RPC);
-      
+
       if (!privateKey) {
         throw new Error('Wallet not authenticated');
       }
 
       const wallet = new ethers.Wallet(privateKey, provider);
-      
+
       console.log('Sending transaction:', {
         from: wallet.address,
         to: receiverAddress,
@@ -359,7 +386,7 @@ const Pay: React.FC = () => {
                   Authenticate to confirm payment
                 </p>
               </div>
-              <FingerprintScanner 
+              <FingerprintScanner
                 onSuccess={handleFingerprintSuccess}
                 buttonText="Confirm & Pay"
                 showResult={false}
@@ -472,10 +499,10 @@ const Pay: React.FC = () => {
       </AnimatePresence>
 
       {/* QR Scanner Modal */}
-      <QRScanner 
-        isOpen={showScanner} 
-        onClose={() => setShowScanner(false)} 
-        onScan={handleScan} 
+      <QRScanner
+        isOpen={showScanner}
+        onClose={() => setShowScanner(false)}
+        onScan={handleScan}
       />
     </div>
   );
