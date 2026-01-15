@@ -131,7 +131,7 @@ def pay(api_endpoint, receiver_address, amount):
         }
         
         pay_response = requests.post(
-            f"{frontend_url}/agent/pay",
+            f"{frontend_url}/api/agent/pay",
             json=pay_payload,
             timeout=60
         )
