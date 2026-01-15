@@ -93,7 +93,7 @@ def pay(api_endpoint, receiver_address, amount):
     Returns:
         dict: Result of payment with tx_hash or error
     """
-    frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5001")
+    frontend_url = os.getenv("FRONTEND_URL", "https://on-ramp-hackathon.vercel.app/")
     
     session_token = get_session_token()
     
