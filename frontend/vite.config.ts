@@ -5,6 +5,8 @@ import { componentTagger } from "lovable-tagger";
 import type { Plugin } from "vite";
 import { randomUUID } from "crypto";
 const { ethers } = await import('ethers');
+import { visualizer } from "rollup-plugin-visualizer";
+
 
 // In-memory stores for session management
 interface PendingAuth {
@@ -296,10 +298,26 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
     port: 5001,
-    cors: true, // Enable global CORS
+    cors: true,
   },
-  plugins: [react(), mode === "development" && componentTagger(), agentPaymentPlugin()].filter(Boolean) as Plugin[],
+  plugins: [
+    react(),
+    mode === "development" && componentTagger(),
+    agentPaymentPlugin(),
+    visualizer({ open: true, gzipSize: true, brotliSize: true, filename: "dist/stats.html" }),
+  ].filter(Boolean) as Plugin[],
   resolve: {
     alias: { "@": path.resolve(__dirname, "./src") },
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes("node_modules")) {
+            return id.split("node_modules/")[1].split("/")[0];
+          }
+        },
+      },
+    },
   },
 }));
