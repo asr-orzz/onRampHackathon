@@ -1,7 +1,7 @@
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.tools import tool
 from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
-from config import MERCHANTS, SPENDING_LIMIT_ETH
+from config import SPENDING_LIMIT_ETH
 import requests
 from dotenv import load_dotenv 
 import json
@@ -38,8 +38,16 @@ def pay(receiver_address: str, amount: float):
             "success": False,
             "error": f"Amount must be greater than 0. Received: {amount} ETH"
         }
+    
+    # Reload merchants data to ensure we have the latest registered merchants
+    try:
+        with open("Data/merchants.json", "r") as f:
+            current_merchants = json.load(f)
+    except Exception:
+        current_merchants = []
+
     merchant = None
-    for m in MERCHANTS:
+    for m in current_merchants:
         if m.get("receiver_address", "").lower() == receiver_address.lower():
             merchant = m
             break
@@ -113,10 +121,17 @@ def run_agent(user_input, max_iterations=3):
     If at any step the agent chooses to end the conversation (not call a tool), returns the final answer.
     """
     try:
+        # Puts the latest merchants in context
+        try:
+            with open("Data/merchants.json", "r") as f:
+                current_merchants = json.load(f)
+        except Exception:
+            current_merchants = []
+
         # Format merchants information for the prompt
         merchants_info = "\n".join([
             f"- {m['name']}: {m['description']} (Address: {m['receiver_address']})"
-            for m in MERCHANTS
+            for m in current_merchants
         ])
         print(f"User input: {user_input}")
 

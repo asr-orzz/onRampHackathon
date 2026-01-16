@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Response
+from fastapi import FastAPI, Response, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import services.agent_service as agent_service
 from utils.helper_functions import register_merchant
@@ -46,12 +46,15 @@ def favicon():
 
 @app.post("/register")
 async def register(request: RegisterRequestSchema) -> RegisterResponseSchema:
-    register_merchant(
+    result = register_merchant(
         request.wallet_address,
         request.username,
         request.business_type,
         request.description,
     )
+    
+    if not result.get("success"):
+        raise HTTPException(status_code=400, detail=result.get("error", "Registration failed"))
     return RegisterResponseSchema(status="success", username=request.username)
 
 @app.post("/agent/chat")
