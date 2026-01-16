@@ -70,12 +70,17 @@ def register_merchant(account_address, name, business_type, description, kyc_inf
     # Add new merchant to list
     merchants_list.append(merchant_entry)
     print(f"merhcant initial list:{merchants_list}")
+    try:
     # Persist back to file
-    os.makedirs(os.path.dirname(merchants_path), exist_ok=True)
-    with open(merchants_path, "w") as f:
-        json.dump(merchants_list, f, indent=2)
-    
-    
+        os.makedirs(os.path.dirname(merchants_path), exist_ok=True)
+        with open(merchants_path, "w") as f:
+            json.dump(merchants_list, f, indent=2)
+        print(f"merhcant final list:{merchants_list}")
+    except Exception as e:
+        return {
+            "success": False,
+            "merchant": str(e)
+        }    
     return {"success": True, "merchant": merchant_entry}
 
 
