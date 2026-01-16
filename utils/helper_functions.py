@@ -10,78 +10,77 @@ def set_session_token(token):
     global session_token
     session_token = token
 
+import os, json
+
 def register_merchant(account_address, name, business_type, description, kyc_info=None):
     """
     Registers a new merchant in Data/merchants.json if the name is unique.
     Supports both list and dict formats, but saves in list format for compatibility.
-    Args:
-        account_address (str): Merchant's wallet address.
-        name (str): Unique merchant name.
-        business_type (str): Type of business or business domain.
-        description (str): Short business description.
-        kyc_info (dict, optional): Legal KYC info to store (e.g., tax ID, contact).
-    Returns:
-        dict: Result of registration, or reason for failure.
     """
-    print(f"req recvd {account_address}")
+    # Basic validation
+    if not isinstance(account_address, str) or not account_address.strip():
+        return {"success": False, "error": "Invalid account_address."}
+    if not isinstance(name, str) or not name.strip():
+        return {"success": False, "error": "Invalid name."}
+    if not isinstance(business_type, str) or not business_type.strip():
+        return {"success": False, "error": "Invalid business_type."}
+    if not isinstance(description, str):
+        return {"success": False, "error": "Invalid description."}
+    if kyc_info is not None and not isinstance(kyc_info, dict):
+        return {"success": False, "error": "kyc_info must be a dict if provided."}
+
     merchants_path = os.path.join("Data", "merchants.json")
+
     # Load existing merchants
-    if not os.path.exists(merchants_path):
-        merchants_list = []
-    else:
-        with open(merchants_path, "r") as f:
-            try:
+    merchants_list = []
+    if os.path.exists(merchants_path):
+        try:
+            with open(merchants_path, "r") as f:
                 merchants_data = json.load(f)
-                # Handle both list and dict formats
-                if isinstance(merchants_data, list):
-                    merchants_list = merchants_data
-                elif isinstance(merchants_data, dict):
-                    # Convert dict format to list format
-                    merchants_list = []
-                    for key, value in merchants_data.items():
-                        merchant = {
-                            "name": key,
-                            "description": value.get("description", ""),
-                            "receiver_address": value.get("wallet_address", value.get("receiver_address", ""))
-                        }
-                        merchants_list.append(merchant)
-                else:
-                    merchants_list = []
-            except json.JSONDecodeError:
+
+            if isinstance(merchants_data, list):
+                merchants_list = merchants_data
+            elif isinstance(merchants_data, dict):
+                # Convert dict format to list format (preserve extra keys if possible)
                 merchants_list = []
+                for key, value in merchants_data.items():
+                    value = value if isinstance(value, dict) else {}
+                    merchants_list.append({
+                        "name": key,
+                        "description": value.get("description", ""),
+                        "receiver_address": value.get("receiver_address", value.get("wallet_address", "")),
+                        "business_type": value.get("business_type", ""),
+                        "kyc_info": value.get("kyc_info", {})
+                    })
+        except (json.JSONDecodeError, OSError):
+            merchants_list = []
 
     # Name uniqueness check (case-insensitive)
-    name_lower = name.lower()
-    print(f"merhcant list:{merchants_list}")
+    name_lower = name.strip().lower()
     for merchant in merchants_list:
         merchant_name = merchant.get("name", "")
-        if isinstance(merchant_name, str) and merchant_name.lower() == name_lower:
+        if isinstance(merchant_name, str) and merchant_name.strip().lower() == name_lower:
             return {"success": False, "error": "Merchant name already exists. Please choose a unique name."}
 
-    # Build merchant data object (list format for compatibility with agent_service)
     merchant_entry = {
-        "name": name,
-        "description": description,
-        "receiver_address": account_address,
-        "business_type": business_type,
-        "kyc_info": kyc_info if kyc_info else {}
+        "name": name.strip(),
+        "description": description.strip(),
+        "receiver_address": account_address.strip(),
+        "business_type": business_type.strip(),
+        "kyc_info": kyc_info or {}
     }
 
-    # Add new merchant to list
     merchants_list.append(merchant_entry)
-    print(f"merhcant initial list:{merchants_list}")
+
     try:
-    # Persist back to file
         os.makedirs(os.path.dirname(merchants_path), exist_ok=True)
         with open(merchants_path, "w") as f:
             json.dump(merchants_list, f, indent=2)
-        print(f"merhcant final list:{merchants_list}")
     except Exception as e:
-        return {
-            "success": False,
-            "merchant": str(e)
-        }    
+        return {"success": False, "error": str(e)}
+
     return {"success": True, "merchant": merchant_entry}
+
 
 
 def pay(api_endpoint, receiver_address, amount):
