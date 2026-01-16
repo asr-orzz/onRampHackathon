@@ -23,6 +23,7 @@ def register_merchant(account_address, name, business_type, description, kyc_inf
     Returns:
         dict: Result of registration, or reason for failure.
     """
+    print(f"req recvd {account_address}")
     merchants_path = os.path.join("Data", "merchants.json")
     # Load existing merchants
     if not os.path.exists(merchants_path):
@@ -51,6 +52,7 @@ def register_merchant(account_address, name, business_type, description, kyc_inf
 
     # Name uniqueness check (case-insensitive)
     name_lower = name.lower()
+    print(f"merhcant list:{merchants_list}")
     for merchant in merchants_list:
         merchant_name = merchant.get("name", "")
         if isinstance(merchant_name, str) and merchant_name.lower() == name_lower:
@@ -67,12 +69,13 @@ def register_merchant(account_address, name, business_type, description, kyc_inf
 
     # Add new merchant to list
     merchants_list.append(merchant_entry)
-
+    print(f"merhcant initial list:{merchants_list}")
     # Persist back to file
     os.makedirs(os.path.dirname(merchants_path), exist_ok=True)
     with open(merchants_path, "w") as f:
         json.dump(merchants_list, f, indent=2)
-
+    
+    
     return {"success": True, "merchant": merchant_entry}
 
 
