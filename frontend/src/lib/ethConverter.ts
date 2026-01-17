@@ -81,6 +81,24 @@ export async function ethToInr(ethAmount: number | string): Promise<number | nul
 }
 
 /**
+ * Convert INR amount to ETH
+ */
+export async function inrToEth(inrAmount: number | string): Promise<number | null> {
+  const inr = typeof inrAmount === 'string' ? parseFloat(inrAmount) : inrAmount;
+  if (isNaN(inr) || inr < 0) {
+    return null;
+  }
+
+  const rate = await getEthToInrRate();
+  if (!rate) {
+    return null;
+  }
+
+  // ETH = INR / Rate
+  return inr / rate;
+}
+
+/**
  * Format INR amount for display
  */
 export function formatInr(amount: number | null): string {

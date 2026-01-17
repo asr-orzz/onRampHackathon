@@ -1,22 +1,13 @@
 [
-    {
-        "name": "Ajay Kumar",
-        "upi_id": "ajaykumar@ybl",
-        "wallet_address": "0x8bD0A4C1887cD12B07043F1F9bCa97D611C97233"
-    },
-    {
-        "name": "Anand Kumar",
-        "upi_id": "anandkumar@ybl",
-        "wallet_address": "0x8bD0A4C1887cD12B07043F1F9bCa97D611C97233"
-    },
-    {
-        "name": "Arun Kumar",
-        "upi_id": "arunkumar@ybl",
-        "wallet_address": "0x8bD0A4C1887cD12B07043F1F9bCa97D611C97233"
-    },
-    {
-        "name": "Bharath Kumar",
-        "upi_id": "bharathkumar@ybl",
-        "wallet_address": "0x8bD0A4C1887cD12B07043F1F9bCa97D611C97233"
-    }
+ 
+  {
+    "name": "Bharath Kumar",
+    "upi_id": "bharathkumar@ybl",
+    "wallet_address": "0x84e1eCB56FcEAe980862e029C28efD75F70cd67B"
+  },
+  {
+    "name": "Ajitesh",
+    "upi_id": "ajitesh@ybl",
+    "wallet_address": "0x1f3194Edfb4eBE65428CE57A800B66eAa81F1E8F"
+  }
 ]

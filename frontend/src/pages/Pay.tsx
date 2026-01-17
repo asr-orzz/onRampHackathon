@@ -16,7 +16,7 @@ import FingerprintScanner from '@/components/FingerprintScanner';
 import { Input } from '@/components/ui/input';
 import { useFingerprintStore } from '@/stores/fingerprintStore';
 import { toast } from 'sonner';
-import { ethToInr, formatInr } from '@/lib/ethConverter';
+import { ethToInr, inrToEth, formatInr } from '@/lib/ethConverter';
 import { useQuery } from '@tanstack/react-query';
 
 type PaymentStep = 'input' | 'amount' | 'confirm' | 'processing' | 'success' | 'error';
@@ -34,7 +34,8 @@ const Pay: React.FC = () => {
 
   const [step, setStep] = useState<PaymentStep>('input');
   const [receiverAddress, setReceiverAddress] = useState('');
-  const [amount, setAmount] = useState('');
+  const [amount, setAmount] = useState(''); // Amount in INR
+  const [ethAmount, setEthAmount] = useState<string>(''); // Converted ETH amount
   const [showScanner, setShowScanner] = useState(false);
   const [showManualInput, setShowManualInput] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -43,16 +44,23 @@ const Pay: React.FC = () => {
 
   const { privateKey, walletAddress, isRegistered } = useFingerprintStore();
 
-  // Convert amount to INR for display
-  const { data: inrAmount } = useQuery({
-    queryKey: ['ethToInr', amount],
+  // Convert INR amount to ETH for transaction
+  const { data: convertedEthAmount, isLoading: isLoadingEth } = useQuery({
+    queryKey: ['inrToEth', amount],
     queryFn: async () => {
       if (!amount || parseFloat(amount) <= 0) return null;
-      return await ethToInr(amount);
+      return await inrToEth(amount);
     },
     enabled: !!amount && parseFloat(amount) > 0,
     refetchInterval: 60000, // Refetch rate every minute
   });
+
+  // Update ETH amount when conversion completes
+  useEffect(() => {
+    if (convertedEthAmount !== null && convertedEthAmount !== undefined) {
+      setEthAmount(convertedEthAmount.toFixed(8));
+    }
+  }, [convertedEthAmount]);
 
   // Handle pre-filled values from navigation state (from AI Chat)
   useEffect(() => {
@@ -88,8 +96,28 @@ const Pay: React.FC = () => {
       toast.error('Invalid wallet address');
     }
   };
+  const fetchWalletAddressFromUpiId = async (upiId: string) => {
+    try {
+      const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
+      const response = await fetch(`${BACKEND_URL}/get-user-from-upi-id?upi_id=${encodeURIComponent(upiId)}`);
+      if (!response.ok) throw new Error('Failed to fetch wallet address');
+      const data = await response.json();
+      if (data && data.wallet_address && ethers.utils.isAddress(data.wallet_address)) {
+        setReceiverAddress(data.wallet_address);
+      } else {
+        toast.error('No user found with provided UPI ID');
+      }
+    } catch (err) {
+      toast.error('Failed to resolve UPI ID');
+    }
+  };
 
   const handleManualSubmit = () => {
+    if (!ethers.utils.isAddress(receiverAddress)) {
+      // Try to resolve as UPI ID
+      fetchWalletAddressFromUpiId(receiverAddress);
+      return;
+    }
     if (ethers.utils.isAddress(receiverAddress)) {
       setShowManualInput(false);
       setStep('amount');
@@ -98,12 +126,21 @@ const Pay: React.FC = () => {
     }
   };
 
-  const handleAmountSubmit = () => {
+  const handleAmountSubmit = async () => {
     const amountNum = parseFloat(amount);
     if (isNaN(amountNum) || amountNum <= 0) {
       toast.error('Please enter a valid amount');
       return;
     }
+    
+    // Convert INR to ETH before proceeding
+    const eth = await inrToEth(amount);
+    if (!eth || eth <= 0) {
+      toast.error('Failed to convert INR to ETH. Please try again.');
+      return;
+    }
+    
+    setEthAmount(eth.toFixed(8));
     setStep('confirm');
   };
 
@@ -118,17 +155,28 @@ const Pay: React.FC = () => {
         throw new Error('Wallet not authenticated');
       }
 
+      // Convert INR to ETH if not already converted
+      let ethToSend = ethAmount;
+      if (!ethToSend || parseFloat(ethToSend) <= 0) {
+        const converted = await inrToEth(amount);
+        if (!converted || converted <= 0) {
+          throw new Error('Failed to convert INR to ETH');
+        }
+        ethToSend = converted.toFixed(8);
+      }
+
       const wallet = new ethers.Wallet(privateKey, provider);
 
       console.log('Sending transaction:', {
         from: wallet.address,
         to: receiverAddress,
-        amount: amount,
+        inrAmount: amount,
+        ethAmount: ethToSend,
       });
 
       const tx = await wallet.sendTransaction({
         to: receiverAddress,
-        value: ethers.utils.parseEther(amount),
+        value: ethers.utils.parseEther(ethToSend),
       });
 
       console.log('Transaction sent:', tx.hash);
@@ -155,6 +203,7 @@ const Pay: React.FC = () => {
     setStep('input');
     setReceiverAddress('');
     setAmount('');
+    setEthAmount('');
     setTxHash('');
     setErrorMessage('');
   };
@@ -238,8 +287,8 @@ const Pay: React.FC = () => {
                 <Keyboard className="w-6 h-6 text-foreground" />
               </div>
               <div className="text-left flex-1">
-                <h3 className="font-semibold text-foreground">Enter Address</h3>
-                <p className="text-sm text-muted-foreground">Type wallet address manually</p>
+                <h3 className="font-semibold text-foreground">Enter UPI ID</h3>
+                <p className="text-sm text-muted-foreground">Type UPI ID manually</p>
               </div>
               <ArrowRight className="w-5 h-5 text-muted-foreground" />
             </motion.button>
@@ -259,11 +308,11 @@ const Pay: React.FC = () => {
                     exit={{ scale: 0.9, opacity: 0 }}
                     className="w-full max-w-sm glass rounded-2xl p-6 space-y-4"
                   >
-                    <h3 className="text-lg font-semibold text-foreground">Enter Wallet Address</h3>
+                    <h3 className="text-lg font-semibold text-foreground">Enter UPI ID</h3>
                     <Input
                       value={receiverAddress}
                       onChange={(e) => setReceiverAddress(e.target.value)}
-                      placeholder="0x..."
+                      placeholder="UPI ID"
                       className="font-mono bg-secondary/50 border-border"
                     />
                     <div className="flex gap-3">
@@ -328,19 +377,19 @@ const Pay: React.FC = () => {
                     onChange={(e) => setAmount(e.target.value)}
                     placeholder="0.00"
                     className="text-4xl font-display font-bold text-foreground bg-transparent text-center w-40 outline-none"
-                    step="0.001"
+                    step="0.01"
                     min="0"
                   />
-                  <span className="text-xl text-muted-foreground">ETH</span>
+                  <span className="text-xl text-muted-foreground">INR</span>
                 </div>
-                {inrAmount !== null && inrAmount !== undefined && (
+                {convertedEthAmount !== null && convertedEthAmount !== undefined && (
                   <p className="text-lg font-semibold text-primary mt-2">
-                    ≈ {formatInr(inrAmount)}
+                    ≈ {convertedEthAmount.toFixed(6)} ETH
                   </p>
                 )}
-                <p className="text-sm text-muted-foreground mt-1">
-                  Sepolia Testnet
-                </p>
+                {isLoadingEth && (
+                  <p className="text-sm text-muted-foreground mt-2">Converting...</p>
+                )}
               </div>
             </div>
 
@@ -381,13 +430,14 @@ const Pay: React.FC = () => {
             {/* Transaction Summary */}
             <div className="glass rounded-xl p-6 space-y-4">
               <div className="flex justify-between items-center">
-                <span className="text-muted-foreground">Amount</span>
-                <div className="text-right">
-                  <span className="text-xl font-semibold text-foreground">{amount} ETH</span>
-                  {inrAmount !== null && inrAmount !== undefined && (
-                    <p className="text-sm text-primary mt-1">{formatInr(inrAmount)}</p>
-                  )}
-                </div>
+                <span className="text-muted-foreground">Amount (INR)</span>
+                <span className="text-xl font-semibold text-foreground">{formatInr(parseFloat(amount) || 0)}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground">Amount (ETH)</span>
+                <span className="text-lg font-semibold text-primary">
+                  {ethAmount ? `${ethAmount} ETH` : convertedEthAmount ? `${convertedEthAmount.toFixed(6)} ETH` : 'Calculating...'}
+                </span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-muted-foreground">Network</span>
@@ -463,13 +513,11 @@ const Pay: React.FC = () => {
             <div className="text-center">
               <h2 className="text-2xl font-display font-bold text-foreground">Payment Sent!</h2>
               <p className="text-muted-foreground text-sm mt-1">
-                {amount} ETH has been sent successfully
+                {formatInr(parseFloat(amount) || 0)} has been sent successfully
               </p>
-              {inrAmount !== null && inrAmount !== undefined && (
-                <p className="text-primary font-semibold mt-1">
-                  {formatInr(inrAmount)}
-                </p>
-              )}
+              <p className="text-primary font-semibold mt-1">
+                {ethAmount || convertedEthAmount?.toFixed(6) || '0'} ETH
+              </p>
             </div>
 
             {txHash && (

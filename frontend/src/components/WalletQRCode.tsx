@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { QRCodeSVG } from 'qrcode.react';
 import { Copy, Check, Share2 } from 'lucide-react';
@@ -10,16 +10,29 @@ interface WalletQRCodeProps {
   showActions?: boolean;
 }
 
+
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
+const getUpiId = async (address: string) => {
+  const response = await fetch(`${BACKEND_URL}/get-user-from-wallet-address?wallet_address=${address}`);
+  const data = await response.json();
+  return data.upi_id;
+};
+
 const WalletQRCode: React.FC<WalletQRCodeProps> = ({ 
   address, 
   size = 200,
   showActions = true 
 }) => {
   const [copied, setCopied] = useState(false);
-
+  const [upiId, setUpiId] = useState('');
+  useEffect(() => {
+    getUpiId(address).then((upiId) => {
+      setUpiId(upiId);
+    });
+  }, [address]);
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(address);
+      await navigator.clipboard.writeText(upiId);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
@@ -70,15 +83,15 @@ const WalletQRCode: React.FC<WalletQRCodeProps> = ({
 
       {/* Address Display */}
       <div className="w-full max-w-xs">
-        <p className="text-xs text-muted-foreground text-center mb-2">Your Wallet Address</p>
+        <p className="text-xs text-muted-foreground text-center mb-2">Your UPI ID</p>
         <div className="bg-secondary/50 rounded-lg p-3">
           <p className="font-mono text-xs text-foreground break-all text-center">
-            {address.substring(0, 6)}...{address.substring(address.length - 6)}
+            {upiId}
           </p>
         </div>
       </div>
 
-      {/* Actions */}
+      {/* Actions */} 
       {showActions && (
         <div className="flex items-center gap-3">
           <motion.button

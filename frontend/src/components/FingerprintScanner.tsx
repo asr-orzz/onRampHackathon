@@ -352,7 +352,7 @@ const FingerprintScanner: React.FC<FingerprintScannerProps> = ({
           className="w-full glass rounded-xl p-4 space-y-3"
         >
           <div>
-            <p className="text-xs text-muted-foreground mb-1">Your Wallet Address</p>
+            <p className="text-xs text-muted-foreground mb-1">Your Wallet Address </p>
             <p className="font-mono text-sm text-foreground break-all bg-secondary/50 p-2 rounded-lg">
               {walletAddress}
             </p>
