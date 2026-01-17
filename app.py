@@ -1,7 +1,3 @@
-# Fix OpenMP duplicate library error on macOS
-import os
-os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
-
 from fastapi import FastAPI, Response, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import services.agent_service as agent_service
@@ -18,6 +14,7 @@ from utils.schemas import (
 import time
 import uvicorn
 import httpx
+import os
 from dotenv import load_dotenv
 load_dotenv()
 
