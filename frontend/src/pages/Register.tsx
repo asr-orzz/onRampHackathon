@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   UserPlus, 
@@ -27,7 +27,7 @@ const Register: React.FC = () => {
   const [businessDescription, setBusinessDescription] = useState('');
   const [isBusinessRegistration, setIsBusinessRegistration] = useState(false);
   const [kycSubmitted, setKycSubmitted] = useState(false);
-
+  const [upiId, setUpiId] = useState('');
   const { 
     walletAddress, 
     isRegistered, 
@@ -36,21 +36,59 @@ const Register: React.FC = () => {
     setKycVerified,
     setRegistered 
   } = useFingerprintStore();
+
+  const [businessUpiId, setBusinessUpiId] = useState('');
+
+  const registerUser = async ({
+    username,
+    upi_id,
+    wallet_address,
+  }: {
+    username: string,
+    upi_id: string,
+    wallet_address: string,
+  }) => {
+    console.log('Registering user:', { username, upi_id, wallet_address });
+    try {
+      const res = await fetch(`${BACKEND_URL || ''}/register-user`, {
+        method: "POST",
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          username,
+          upi_id,
+          wallet_address,
+        }),
+      });
+      if (!res.ok) {
+        throw new Error("Failed to register user");
+      }
+      return await res.json();
+    } catch (e: any) {
+      console.error("User registration API error:", e);
+      toast.error('Could not save user registration. Please try again.');
+      return null;
+    }
+  };
+
   const saveRegistration = async ({
     username,
     wallet_address,
     description,
     business_type,
+    business_upi_id,
   }: {
     username: string,
     wallet_address: string,
     description: string,
     business_type: string,
+    business_upi_id: string,
   }) => {
     console.log('Saving registration:', { username, wallet_address, description, business_type });
     try {
       
-      const res = await fetch(`${BACKEND_URL || ''}/register`, {
+      const res = await fetch(`${BACKEND_URL || ''}/register-merchant`, {
         method: "POST",
         headers: {
           'Content-Type': 'application/json',
@@ -60,6 +98,7 @@ const Register: React.FC = () => {
           wallet_address,
           description,
           business_type,
+          business_upi_id,
         }),
       });
       if (!res.ok) {
@@ -73,38 +112,85 @@ const Register: React.FC = () => {
     }
   };
 
+
   const handleFingerprintSuccess = async (privateKey: string, address: string) => {
     console.log('Fingerprint registered:', { address, privateKeyPrefix: privateKey.substring(0, 10) + '...' });
     
     if (step === 'personal') {
-      if (userName.trim()) {
+      // Validate required fields
+      if (!userName.trim()) {
+        toast.error('Please enter your name');
+        return;
+      }
+      if (!upiId.trim()) {
+        toast.error('Please enter your UPI ID');
+        return;
+      }
+
+      // Call register user API
+      const registration_response = await registerUser({
+        username: userName.trim(),
+        upi_id: upiId.trim(),
+        wallet_address: address,
+      });
+
+      if (registration_response) {
         storeSetUserName(userName.trim());
-      } 
-      setRegistered(true);
-      setStep('complete');
-      toast.success('Registration successful!');
+        setRegistered(true);
+        setStep('complete');
+        toast.success('Registration successful!');
+      } else {
+        toast.error('Registration failed. Please try again.');
+      }
     } else if (step === 'business') {
+      // Validate required fields
+      if (!userName.trim()) {
+        toast.error('Please enter your name');
+        return;
+      }
+      if (!businessName.trim()) {
+        toast.error('Please enter business name');
+        return;
+      }
+      if (!businessDescription.trim()) {
+        toast.error('Please enter business description');
+        return;
+      }
+      if(!businessUpiId.trim()) {
+        toast.error('Please enter business UPI ID');
+        return;
+      }
+
       if (userName.trim()) {
         storeSetUserName(userName.trim());
       }
       if (businessName.trim() && businessDescription.trim()) {
         setBusinessInfo(businessName.trim(), businessDescription.trim());
       }
+
+      const res = await registerUser({
+        username: userName.trim(),
+        upi_id: businessUpiId.trim(),
+        wallet_address: address,
+      });
+
+ 
+
+      const registration_response = await res.json();
+      console.log('Business registration response:', registration_response);
       setRegistered(true);
       setStep('complete');
+      toast.success('Business registered successfully!');
+    }
+  };
 
-      if (isBusinessRegistration) {
-        const registration_response = await saveRegistration({
-          username: userName,
-          wallet_address: address,  
-          description: businessDescription,
-          business_type: 'business',
-        });
-        console.log('Registration response:', registration_response);
-        toast.success('Business registered successfully!');
-      } else {
-        toast.success('Personal registered successfully!');
-      }
+  const fetchUser = async () => {
+    const res = await fetch(`${BACKEND_URL || ''}/get-user-from-wallet-address?wallet_address=${walletAddress}`);
+    const data = await res.json();
+    console.log('User data:', data);
+    if (data.success) {
+      setUserName(data.username);
+      setUpiId(data.upi_id);
     }
   };
 
@@ -268,7 +354,7 @@ const Register: React.FC = () => {
             <div className="text-center">
               <h2 className="text-2xl font-display font-bold text-foreground">Personal Account</h2>
               <p className="text-muted-foreground text-sm mt-1">
-                Enter your name and scan your fingerprint
+                Enter your name and UPI ID and scan your fingerprint
               </p>
             </div>
 
@@ -281,6 +367,17 @@ const Register: React.FC = () => {
                   value={userName}
                   onChange={(e) => setUserName(e.target.value)}
                   placeholder="Enter your name"
+                  className="bg-secondary/50 border-border"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-foreground mb-2 block">
+                  Your UPI ID
+                </label>
+                <Input
+                  value={upiId}
+                  onChange={(e) => setUpiId(e.target.value)}
+                  placeholder="Enter your UPI ID"
                   className="bg-secondary/50 border-border"
                 />
               </div>
@@ -345,6 +442,17 @@ const Register: React.FC = () => {
                   value={businessName}
                   onChange={(e) => setBusinessName(e.target.value)}
                   placeholder="Enter business name"
+                  className="bg-secondary/50 border-border"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-foreground mb-2 block">
+                  Business UPI ID 
+                </label>
+                <Input
+                  value={businessUpiId}
+                  onChange={(e) => setBusinessUpiId(e.target.value)}
+                  placeholder="Enter business UPI ID"
                   className="bg-secondary/50 border-border"
                 />
               </div>

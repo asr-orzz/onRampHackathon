@@ -1,3 +1,7 @@
+# Fix OpenMP duplicate library error on macOS
+import os
+os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
+
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.tools import tool
 from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage

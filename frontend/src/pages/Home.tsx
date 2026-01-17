@@ -10,6 +10,7 @@ import GettingStarted from '@/components/GettingStarted';
 import heroPaymentImg from '@/assets/hero-payment.png';
 import { ethers } from 'ethers';
 import { useQuery } from '@tanstack/react-query';
+import { ethToInr, formatInrCompact } from '@/lib/ethConverter';
 
 const SEPOLIA_RPC_URL = import.meta.env.SEPOLIA_RPC_URL||'https://sepolia.infura.io/v3/a1cf6b93c95b4e079a21fa4fca874411';
 
@@ -27,6 +28,8 @@ const getSepoliaBalance = async (address: string): Promise<string> => {
     return '0.0';
   }
 };
+
+
 
 const Home: React.FC = () => {
   const navigate = useNavigate();
@@ -46,8 +49,23 @@ const Home: React.FC = () => {
     refetchInterval: 30000, // Refetch every 30 seconds
   });
 
+  // Convert ETH balance to INR
+  const { data: inrBalance, isLoading: isLoadingInr } = useQuery({
+    queryKey: ['ethToInr', balance],
+    queryFn: async () => {
+      if (!balance) return null;
+      return await ethToInr(balance);
+    },
+    enabled: !!balance,
+    refetchInterval: 60000, // Refetch rate every minute
+  });
+
   // Format balance for display
-  const displayBalance = balance ? parseFloat(balance).toFixed(4) : '0.0000';
+  const displayBalance = inrBalance !== null && inrBalance !== undefined 
+    ? formatInrCompact(inrBalance) 
+    : isLoadingInr 
+      ? '...' 
+      : '₹0.00';
 
   return (
     <div className="min-h-screen pb-24">
@@ -70,12 +88,11 @@ const Home: React.FC = () => {
                   {isBusiness ? businessName : `Welcome back, ${userName || 'User'}`}
                 </p>
                 <div className="flex items-baseline gap-2">
-                  {isLoading ? (
+                  {isLoading || isLoadingInr ? (
                     <span className="text-4xl font-display font-bold text-muted-foreground">...</span>
                   ) : (
                     <span className="text-4xl font-display font-bold text-foreground">{displayBalance}</span>
                   )}
-                  <span className="text-lg text-muted-foreground">ETH</span>
                 </div>
                
                 <div className="flex items-center gap-3 mt-6">

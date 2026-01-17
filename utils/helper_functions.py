@@ -173,4 +173,94 @@ def pay(api_endpoint, receiver_address, amount):
             "error": str(e)
         }
 
-    
+def register_user(username,upi_id, wallet_address):
+    """
+    Registers a new user in Data/users.json if the username is unique.
+    Args:
+        username (str): Unique username.
+        upi_id (str): Unique UPI ID.
+        wallet_address (str): User's wallet address.
+    Returns:
+        dict: Result of registration, or reason for failure.
+    """
+    users_path = os.path.join("Data", "users.json")
+    if not os.path.exists(users_path):
+        users_list = []
+    else:
+        with open(users_path, "r") as f:
+            try:
+                users_data = json.load(f)
+                if isinstance(users_data, list):
+                    users_list = users_data
+                else:
+                    users_list = []
+            except json.JSONDecodeError:
+                users_list = []
+    # Username uniqueness check (case-insensitive)  
+    username_lower = username.lower()
+    for user in users_list:
+        user_name = user.get("name", "")
+        if isinstance(user_name, str) and user_name.lower() == username_lower:
+            return {"success": False, "error": "Username already exists. Please choose a unique username."}
+    # Build user data object (list format for compatibility with agent_service)
+    user_entry = {
+        "name": username,
+        "upi_id": upi_id,
+        "wallet_address": wallet_address,
+    }
+    # Add new user to list
+    users_list.append(user_entry)
+    try:
+        os.makedirs(os.path.dirname(users_path), exist_ok=True)
+        with open(users_path, "w") as f:
+            json.dump(users_list, f, indent=2)
+        return {"success": True, "user": user_entry}
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+def get_user(wallet_address):
+    """
+    Gets a user from Data/users.json by wallet address.
+    Args:
+        wallet_address (str): User's wallet address.
+    Returns:
+        dict: User data, or None if not found.
+    """
+    users_path = os.path.join("Data", "users.json")
+    if not os.path.exists(users_path):
+        return None
+    with open(users_path, "r") as f:
+        try:
+            users_data = json.load(f)
+            if isinstance(users_data, list):
+                for user in users_data:
+                    if user.get("wallet_address", "") == wallet_address:
+                        return user
+        except json.JSONDecodeError:
+            return None
+    return None
+
+def get_user_by_upi_id(upi_id):
+    """
+    Gets a user from Data/users.json by UPI ID.
+    Args:
+        upi_id (str): User's UPI ID.
+    Returns:
+        dict: User data, or None if not found.
+    """
+    users_path = os.path.join("Data", "users.json")
+    if not os.path.exists(users_path):
+        return None
+    with open(users_path, "r") as f:
+        try:
+            users_data = json.load(f)
+            if isinstance(users_data, list):
+                for user in users_data:
+                    if user.get("upi_id", "") == upi_id:
+                        return user
+        except json.JSONDecodeError:
+            return None
+    return None

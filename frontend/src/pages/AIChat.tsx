@@ -16,6 +16,8 @@ import { useChatStore, ChatMessage } from '@/stores/chatStore';
 import { useFingerprintStore } from '@/stores/fingerprintStore';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { ethToInr, formatInr } from '@/lib/ethConverter';
+import { useQuery } from '@tanstack/react-query';
 
 interface AutoFillData {
   receiver: string;
@@ -32,6 +34,17 @@ const AIChat: React.FC = () => {
   const { messages, isLoading, addMessage, setLoading } = useChatStore();
   const { userName } = useFingerprintStore();
   const navigate = useNavigate();
+
+  // Convert pending payment amount to INR
+  const { data: inrAmount } = useQuery({
+    queryKey: ['ethToInr', pendingPayment?.amount],
+    queryFn: async () => {
+      if (!pendingPayment?.amount || parseFloat(pendingPayment.amount) <= 0) return null;
+      return await ethToInr(pendingPayment.amount);
+    },
+    enabled: !!pendingPayment?.amount && parseFloat(pendingPayment.amount) > 0,
+    refetchInterval: 60000, // Refetch rate every minute
+  });
 
   // Add welcome message on mount if no messages
   useEffect(() => {
@@ -229,7 +242,12 @@ const AIChat: React.FC = () => {
               <div className="space-y-2 mb-3">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Amount</span>
-                  <span className="font-medium text-foreground">{pendingPayment.amount} ETH</span>
+                  <div className="text-right">
+                    <span className="font-medium text-foreground">{pendingPayment.amount} ETH</span>
+                    {inrAmount !== null && inrAmount !== undefined && (
+                      <p className="text-xs text-primary mt-0.5">{formatInr(inrAmount)}</p>
+                    )}
+                  </div>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">To</span>

@@ -16,6 +16,8 @@ import FingerprintScanner from '@/components/FingerprintScanner';
 import { Input } from '@/components/ui/input';
 import { useFingerprintStore } from '@/stores/fingerprintStore';
 import { toast } from 'sonner';
+import { ethToInr, formatInr } from '@/lib/ethConverter';
+import { useQuery } from '@tanstack/react-query';
 
 type PaymentStep = 'input' | 'amount' | 'confirm' | 'processing' | 'success' | 'error';
 
@@ -40,6 +42,17 @@ const Pay: React.FC = () => {
   const [errorMessage, setErrorMessage] = useState('');
 
   const { privateKey, walletAddress, isRegistered } = useFingerprintStore();
+
+  // Convert amount to INR for display
+  const { data: inrAmount } = useQuery({
+    queryKey: ['ethToInr', amount],
+    queryFn: async () => {
+      if (!amount || parseFloat(amount) <= 0) return null;
+      return await ethToInr(amount);
+    },
+    enabled: !!amount && parseFloat(amount) > 0,
+    refetchInterval: 60000, // Refetch rate every minute
+  });
 
   // Handle pre-filled values from navigation state (from AI Chat)
   useEffect(() => {
@@ -320,7 +333,12 @@ const Pay: React.FC = () => {
                   />
                   <span className="text-xl text-muted-foreground">ETH</span>
                 </div>
-                <p className="text-sm text-muted-foreground mt-2">
+                {inrAmount !== null && inrAmount !== undefined && (
+                  <p className="text-lg font-semibold text-primary mt-2">
+                    ≈ {formatInr(inrAmount)}
+                  </p>
+                )}
+                <p className="text-sm text-muted-foreground mt-1">
                   Sepolia Testnet
                 </p>
               </div>
@@ -364,7 +382,12 @@ const Pay: React.FC = () => {
             <div className="glass rounded-xl p-6 space-y-4">
               <div className="flex justify-between items-center">
                 <span className="text-muted-foreground">Amount</span>
-                <span className="text-xl font-semibold text-foreground">{amount} ETH</span>
+                <div className="text-right">
+                  <span className="text-xl font-semibold text-foreground">{amount} ETH</span>
+                  {inrAmount !== null && inrAmount !== undefined && (
+                    <p className="text-sm text-primary mt-1">{formatInr(inrAmount)}</p>
+                  )}
+                </div>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-muted-foreground">Network</span>
@@ -442,6 +465,11 @@ const Pay: React.FC = () => {
               <p className="text-muted-foreground text-sm mt-1">
                 {amount} ETH has been sent successfully
               </p>
+              {inrAmount !== null && inrAmount !== undefined && (
+                <p className="text-primary font-semibold mt-1">
+                  {formatInr(inrAmount)}
+                </p>
+              )}
             </div>
 
             {txHash && (

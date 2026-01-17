@@ -6,6 +6,7 @@ class RegisterRequestSchema(BaseModel):
     wallet_address: str
     description: str
     business_type: str
+    business_upi_id: str
     
 class RegisterResponseSchema(BaseModel):
     status: str
@@ -18,3 +19,17 @@ class AgentChatResponseSchema(BaseModel):
 class AgentChatRequestSchema(BaseModel):
     message: str
     
+class RegisterUserRequestSchema(BaseModel):
+    username: str
+    upi_id: str
+    wallet_address: str
+    
+class RegisterUserResponseSchema(BaseModel):
+    status: str
+    username: str
+    
+class GetUserResponseSchema(BaseModel):
+    username: str
+    upi_id: str
+    wallet_address: str
+    error: Optional[str] = None
